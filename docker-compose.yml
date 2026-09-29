@@ -1,0 +1,130 @@
+services:
+  dc:
+    build:
+      context: ./dc
+      dockerfile: Dockerfile
+    image: kerberos-dc:latest
+    container_name: kerberos-dc
+    hostname: dc.lab.local
+    cap_add:
+      - SYS_ADMIN
+    networks:
+      lab-net:
+        ipv4_address: 172.30.0.10
+    volumes:
+      - keytab-data:/shared
+      - dc-data:/var/lib/samba
+    environment:
+      - REALM=${LAB_REALM:-LAB.LOCAL}
+      - DOMAIN=${LAB_DOMAIN:-lab.local}
+      - NETBIOS=${LAB_NETBIOS:-LAB}
+      - ADMIN_PASS=${ADMIN_PASS:-AdminP@ss123!}
+      - ALICE_PASS=${ALICE_PASS:-AliceP@ss123!}
+      - BOB_PASS=${BOB_PASS:-BobP@ss123!}
+      - SERVICE_PASS=${SERVICE_PASS:-SvcApiP@ss123!}
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    image: kerberos-api:latest
+    container_name: kerberos-api
+    hostname: api.lab.local
+    networks:
+      lab-net:
+        ipv4_address: 172.30.0.20
+    dns:
+      - 172.30.0.10
+    dns_search:
+      - lab.local
+    extra_hosts:
+      - "dc.lab.local:172.30.0.10"
+      - "api.lab.local:172.30.0.20"
+      - "client.lab.local:172.30.0.30"
+      - "attacker.lab.local:172.30.0.50"
+    volumes:
+      - keytab-data:/shared
+    ports:
+      - "${HOST_API_PORT:-8080}:8000"
+    environment:
+      - REALM=${LAB_REALM:-LAB.LOCAL}
+      - SERVICE_SPN=${SERVICE_SPN:-HTTP/api.lab.local}
+      - KEYTAB_PATH=/shared/api.keytab
+    depends_on:
+      - dc
+    restart: unless-stopped
+
+  client:
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    image: kerberos-client:latest
+    container_name: kerberos-client
+    hostname: client.lab.local
+    networks:
+      lab-net:
+        ipv4_address: 172.30.0.30
+    dns:
+      - 172.30.0.10
+    dns_search:
+      - lab.local
+    extra_hosts:
+      - "dc.lab.local:172.30.0.10"
+      - "api.lab.local:172.30.0.20"
+      - "client.lab.local:172.30.0.30"
+      - "attacker.lab.local:172.30.0.50"
+    volumes:
+      - keytab-data:/shared
+      - ./detector:/app/detector
+    environment:
+      - REALM=${LAB_REALM:-LAB.LOCAL}
+      - API_URL=http://api.lab.local:8000
+    depends_on:
+      - dc
+      - api
+    restart: unless-stopped
+
+  attacker:
+    build:
+      context: ./attacker
+      dockerfile: Dockerfile
+    image: kerberos-attacker:latest
+    container_name: kerberos-attacker
+    hostname: attacker.lab.local
+    networks:
+      lab-net:
+        ipv4_address: 172.30.0.50
+    dns:
+      - 172.30.0.10
+    dns_search:
+      - lab.local
+    extra_hosts:
+      - "dc.lab.local:172.30.0.10"
+      - "api.lab.local:172.30.0.20"
+      - "client.lab.local:172.30.0.30"
+      - "attacker.lab.local:172.30.0.50"
+    volumes:
+      - keytab-data:/shared
+    environment:
+      - REALM=${LAB_REALM:-LAB.LOCAL}
+      - API_URL=http://api.lab.local:8000
+    depends_on:
+      - dc
+      - api
+    restart: unless-stopped
+
+volumes:
+  keytab-data:
+    name: kerberos_keytab_data
+  dc-data:
+    name: kerberos_dc_data
+
+networks:
+  lab-net:
+    name: kerberos_lab_net
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.30.0.0/24
