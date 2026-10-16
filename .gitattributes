@@ -1,2 +1,27 @@
-# Auto detect text files and perform LF normalization
+# Auto detect text files and perform LF normalization on checkout
 * text=auto
+
+# Enforce Unix LF line endings for all shell scripts, configs, and Python files
+*.sh text eol=lf
+*.bash text eol=lf
+*.py text eol=lf
+*.conf text eol=lf
+*.dot text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.txt text eol=lf
+Dockerfile text eol=lf
+Makefile text eol=lf
+
+# PowerShell scripts can use CRLF or LF, keep LF for consistency
+*.ps1 text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.keytab binary
+*.ccache binary
+*.tar binary
+*.gz binary

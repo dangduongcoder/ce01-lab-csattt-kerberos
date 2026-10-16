@@ -22,7 +22,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./api/app/
 COPY entrypoint.sh /entrypoint.sh
 
-RUN chmod +x /entrypoint.sh
+RUN sed -i 's/\r$//' /entrypoint.sh /etc/krb5.conf && \
+    chmod +x /entrypoint.sh
 
 EXPOSE 8000
 

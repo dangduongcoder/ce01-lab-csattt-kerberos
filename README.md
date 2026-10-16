@@ -25,15 +25,15 @@ Hỗ trợ hoạt động trơn tru trên **macOS (Apple Silicon arm64 & Intel)*
 
 ## 🏛️ Kiến trúc hệ thống
 
-Hệ thống gồm 4 container chạy trong mạng nội bộ cô lập `172.20.0.0/24` với domain giả lập `LAB.LOCAL`:
+Hệ thống gồm 4 container chạy trong mạng nội bộ cô lập `172.30.0.0/24` với domain giả lập `LAB.LOCAL`:
 
 ```text
-                             Docker Internal Network: 172.20.0.0/24
+                             Docker Internal Network: 172.30.0.0/24
                                       Domain: LAB.LOCAL
 
                              ┌───────────────────────────────┐
                              │       DC / KDC Container      │
-                             │         172.20.0.10           │
+                             │         172.30.0.10           │
                              │                               │
                              │  • Samba 4 Active Directory   │
                              │  • Kerberos KDC (Port 88)     │
@@ -46,7 +46,7 @@ Hệ thống gồm 4 container chạy trong mạng nội bộ cô lập `172.20.
              ▼                               ▼                               ▼
    ┌───────────────────┐           ┌───────────────────┐           ┌───────────────────┐
    │  Client Container │           │ API Server (Svc)  │           │ Attacker Container│
-   │    172.20.0.30    │           │    172.20.0.20    │           │    172.20.0.50    │
+   │    172.30.0.30    │           │    172.30.0.20    │           │    172.30.0.50    │
    │                   │           │                   │           │                   │
    │ • Python CLI      │           │ • FastAPI REST API│           │ • Impacket Suite  │
    │ • pyspnego/gssapi │           │ • SPNEGO Auth     │           │ • Ticket Forger   │
@@ -61,10 +61,10 @@ Hệ thống gồm 4 container chạy trong mạng nội bộ cô lập `172.20.
 
 | Container | Hostname | IP | Vai trò & Công nghệ |
 | :--- | :--- | :--- | :--- |
-| `kerberos-dc` | `dc.lab.local` | `172.20.0.10` | Samba 4 AD DC, KDC, LDAP, Internal DNS. |
-| `kerberos-api` | `api.lab.local` | `172.20.0.20` | FastAPI Server xác thực qua Kerberos SPNEGO bằng Keytab. |
-| `kerberos-client` | `client.lab.local` | `172.20.0.30` | Máy người dùng hợp lệ (`alice`), tích hợp CLI và Tool phân tích vé. |
-| `kerberos-attacker`| `attacker.lab.local`| `172.20.0.50` | Máy giả lập kẻ tấn công, sử dụng Impacket rèn Golden Ticket. |
+| `kerberos-dc` | `dc.lab.local` | `172.30.0.10` | Samba 4 AD DC, KDC, LDAP, Internal DNS. |
+| `kerberos-api` | `api.lab.local` | `172.30.0.20` | FastAPI Server xác thực qua Kerberos SPNEGO bằng Keytab. |
+| `kerberos-client` | `client.lab.local` | `172.30.0.30` | Máy người dùng hợp lệ (`alice`), tích hợp CLI và Tool phân tích vé. |
+| `kerberos-attacker`| `attacker.lab.local`| `172.30.0.50` | Máy giả lập kẻ tấn công, sử dụng Impacket rèn Golden Ticket. |
 
 ---
 
@@ -130,62 +130,94 @@ Module `detector` thực hiện phân tích log theo 3 quy tắc:
 * Cổng `8080` trên máy host đang rảnh.
 
 ### 1. Khởi động phòng Lab:
-```bash
-# Sử dụng Makefile:
-make up
 
-# Hoặc bằng Docker Compose trực tiếp:
+**Trên macOS / Linux / WSL2 / Git Bash:**
+```bash
+make up
+# Hoặc: docker compose up -d --build
+```
+
+**Trên Windows (PowerShell / Command Prompt):**
+```powershell
 docker compose up -d --build
 ```
-> *Lưu ý:* Lần khởi động đầu tiên, Samba AD DC mất khoảng 15-25 giây để provision database và export keytab.
+> *Lưu ý:* Lần khởi động đầu tiên, Samba AD DC mất khoảng 15-25 giây để provision database và export keytab ra volume dùng chung.
 
-### 2. Kiểm tra trạng thái sẵn sàng:
+### 2. Kiểm tra trạng thái sẵn sàng (Healthcheck):
+
+**Trên macOS / Linux / WSL2:**
 ```bash
 make healthcheck
 # Hoặc: ./scripts/healthcheck.sh
+```
+
+**Trên Windows (PowerShell):**
+```powershell
+.\scripts\healthcheck.ps1
 ```
 Khi thấy tất cả các mục báo `[OK]`, hệ thống đã sẵn sàng cho buổi demo!
 
 ---
 
-## 🎬 Kịch bản Demo trực tiếp (5 Màn)
+## 🎬 Kịch bản Demo trực tiếp (7 Màn)
 
-Bạn có thể chạy toàn bộ kịch bản tự động bằng lệnh:
-```bash
-make demo-all
-```
-Hoặc thực hiện từng màn theo trình tự thuyết trình dưới đây:
+### Chạy tự động liên hoàn toàn bộ kịch bản:
 
-### Màn 1: Xác thực Kerberos hợp lệ (Alice)
+* **Trên macOS / Linux / WSL2:**
+  ```bash
+  make demo-all
+  # Hoặc: ./scripts/demo_all.sh
+  ```
+* **Trên Windows PowerShell:**
+  ```powershell
+  powershell -ExecutionPolicy Bypass -File .\scripts\demo_all.ps1
+  ```
+
+---
+
+### Hoặc thực hiện từng màn độc lập:
+
+#### Màn 1: Xác thực Kerberos hợp lệ (Alice)
 ```bash
-make demo-normal
+# macOS/Linux: make demo-normal
+docker compose exec client python demo_normal.py
 ```
 * **Hiện tượng:** Alice đăng nhập, nhận TGT, truy cập `/api/whoami` thành công (Role: User). Khi Alice thử truy cập `/api/admin/flag`, hệ thống trả về **HTTP 403 Forbidden**.
 
-### Màn 2: Tấn công Golden Ticket (Attacker)
+#### Màn 2: Tấn công Golden Ticket (Attacker)
 ```bash
-make demo-attack
+# macOS/Linux: make demo-attack
+docker compose exec attacker python demo_golden_ticket.py
 ```
 * **Hiện tượng:** Attacker dùng bí mật `krbtgt` rèn TGT mạo danh `administrator` với quyền `Domain Admins`. Attacker truy cập `/api/admin/flag` thành công và nhận được Flag quản trị:
   `CSATTT{G0LD3N_T1CK3T_KRBTGT_P0WN3D_2026}`.
 
-### Màn 3: Phẫu thuật vé Kerberos & PAC Inspector
+#### Màn 3: Phẫu thuật vé Kerberos & PAC Inspector
 ```bash
-make inspect
+# macOS/Linux: make inspect
+docker compose exec client python inspect_ticket.py
 ```
 * **Hiện tượng:** Hiển thị bảng so sánh trực quan từng trường dữ liệu giữa vé của Alice và Golden Ticket (User RID 500, Group 512, Lifetime 10 năm).
 
-### Màn 4: Giám sát & Báo động (Blue Team Detector)
+#### Màn 4: Giám sát & Báo động (Blue Team Detector)
 ```bash
-make detect
+# macOS/Linux: make detect
+docker compose exec client python -m detector.report
 ```
 * **Hiện tượng:** Hệ thống phân tích log và phát ra các cảnh báo `[CRITICAL]` về việc vé xuất hiện không qua $AS\text{-}REQ$ và thời hạn vé vượt quá 10 giờ.
 
-### Màn 5: Ứng phó sự cố (Double krbtgt Reset)
+#### Màn 5: Ứng phó sự cố (Double krbtgt Reset)
 ```bash
-make recover
+# macOS/Linux: make recover
+docker compose exec dc /scripts/rotate_krbtgt.sh
 ```
-* **Hiện tượng:** DC thực hiện reset mật khẩu `krbtgt` 2 lần. Thử dùng lại Golden Ticket cũ $\rightarrow$ **Thất bại ngay lập tức**. Alice đăng nhập lại $\rightarrow$ **Thành công bình thường**.
+* **Hiện tượng:** DC thực hiện reset mật khẩu `krbtgt` 2 lần. Thử dùng lại Golden Ticket cũ $\rightarrow$ **Thất bại ngay lập tức (401)**. Alice đăng nhập lại $\rightarrow$ **Thành công bình thường**.
+
+#### Reset toàn bộ Lab về trạng thái sạch ban đầu:
+```bash
+# macOS/Linux: make clean hoặc ./scripts/reset.sh
+# Windows PowerShell: .\scripts\reset.ps1
+```
 
 ---
 
