@@ -10,6 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     krb5-user \
     libkrb5-dev \
     curl \
+    dos2unix \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -22,9 +23,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY app/ ./api/app/
 COPY entrypoint.sh /entrypoint.sh
 
-RUN sed -i 's/\r$//' /entrypoint.sh /etc/krb5.conf && \
+# Sanitize line endings and make executable (solves Windows CRLF exec issues)
+RUN dos2unix /entrypoint.sh /etc/krb5.conf && \
+    sed -i 's/\r$//' /entrypoint.sh /etc/krb5.conf && \
     chmod +x /entrypoint.sh
 
 EXPOSE 8000
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Use /bin/bash explicitly so Linux kernel does not rely on shebang interpreter lookup
+ENTRYPOINT ["/bin/bash", "/entrypoint.sh"]
