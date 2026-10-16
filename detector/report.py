@@ -13,7 +13,7 @@ console = Console()
 
 def generate_report():
     console.print(Panel.fit(
-        "[bold blue]🛡️ BLUE TEAM DETECTION ENGINE & SECURITY INCIDENT REPORT[/]\n"
+        "[bold blue][+] BLUE TEAM DETECTION ENGINE & SECURITY INCIDENT REPORT[/]\n"
         "Hệ thống giám sát và phân tích bất thường xác thực Kerberos Active Directory",
         style="bold cyan"
     ))
@@ -28,7 +28,7 @@ def generate_report():
 
     if not alerts:
         console.print(Panel(
-            "[bold green][✓] Không phát hiện hành vi bất thường nào.[/]\n"
+            "[bold green][+] Không phát hiện hành vi bất thường nào.[/]\n"
             "Tất cả các phiên xác thực đều tuân thủ chính sách bảo mật Kerberos tiêu chuẩn.",
             title="[bold green]Trạng thái an toàn[/]",
             style="green"
@@ -46,7 +46,7 @@ def generate_report():
 
     console.print(table)
 
-    console.print("\n[bold red]🚨 KẾT LUẬN ĐIỀU TRA (INCIDENT RESPONSE):[/]")
+    console.print("\n[bold red][!] KẾT LUẬN ĐIỀU TRA (INCIDENT RESPONSE):[/]")
     console.print("  [!] Hệ thống có dấu hiệu rõ ràng của cuộc tấn công [bold red]Golden Ticket (MITRE ATT&CK T1558.001)[/].")
     console.print("  [!] Kẻ tấn công đã nắm giữ bí mật của tài khoản [bold red]krbtgt[/] và tự rèn vé có hạn 10 năm với quyền Administrator.")
     console.print("  [!] Đề xuất hành động khắc phục ngay lập tức: [bold yellow]Thực hiện Double Reset mật khẩu krbtgt[/] để vô hiệu hóa toàn bộ vé giả mạo!")

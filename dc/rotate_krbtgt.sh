@@ -15,12 +15,12 @@ NEW_PASS_1="NewKrbTgtP@ssWord_Phase1_$(date +%s)!"
 NEW_PASS_2="NewKrbTgtP@ssWord_Phase2_$(date +%s)!"
 
 echo "[*] Step 1: Performing FIRST krbtgt password reset..."
-samba-tool user password krbtgt --newpassword="${NEW_PASS_1}"
+samba-tool user setpassword krbtgt --newpassword="${NEW_PASS_1}"
 echo "[+] First reset completed. Current key updated, old key moved to 'Previous'."
 sleep 2
 
 echo "[*] Step 2: Performing SECOND krbtgt password reset..."
-samba-tool user password krbtgt --newpassword="${NEW_PASS_2}"
+samba-tool user setpassword krbtgt --newpassword="${NEW_PASS_2}"
 echo "[+] Second reset completed. Compromised key is now permanently purged!"
 
 echo "[*] Step 3: Re-exporting fresh krbtgt keytab..."

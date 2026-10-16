@@ -59,3 +59,14 @@ def get_recent_events(limit: int = 50):
     except Exception as e:
         logger.error(f"Failed to read audit log: {e}")
         return []
+
+def clear_audit_logs() -> bool:
+    try:
+        if os.path.exists(AUDIT_LOG_FILE):
+            with open(AUDIT_LOG_FILE, "w") as f:
+                f.truncate(0)
+        logger.info("AUDIT: All audit log events have been cleared.")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to clear audit log: {e}")
+        return False

@@ -15,5 +15,5 @@ docker compose down -v --remove-orphans
 echo "[*] Cleaning up any local caches..."
 rm -f *.ccache
 
-echo -e "\n${GREEN}[✓] Lab has been completely reset to pristine state.${NC}"
+echo -e "\n${GREEN}[+] Lab has been completely reset to pristine state.${NC}"
 echo -e "You can re-launch anytime with: ${CYAN}make up${NC} or ${CYAN}docker compose up -d --build${NC}"

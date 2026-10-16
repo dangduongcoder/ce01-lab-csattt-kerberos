@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse, HTMLResponse
 from api.app.kerberos_auth import KerberosAuthenticator
-from api.app.audit_log import log_auth_event, get_recent_events
+from api.app.audit_log import log_auth_event, get_recent_events, clear_audit_logs
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 logger = logging.getLogger("api.main")
@@ -129,9 +129,17 @@ async def admin_flag(request: Request):
 async def get_logs():
     return {"events": get_recent_events(limit=50)}
 
+@app.post("/api/logs/clear")
+@app.delete("/api/logs")
+async def clear_logs_endpoint():
+    success = clear_audit_logs()
+    if success:
+        return {"status": "success", "message": "Toàn bộ nhật ký xác thực đã được xóa thành công."}
+    return JSONResponse(status_code=500, content={"status": "error", "message": "Không thể xóa nhật ký."})
+
 @app.get("/", response_class=HTMLResponse)
 async def dashboard():
-    events = get_recent_events(limit=15)
+    events = get_recent_events(limit=25)
     rows_html = ""
     for ev in reversed(events):
         badge_class = "success" if ev.get("authenticated") else "danger"
@@ -175,11 +183,14 @@ async def dashboard():
             .badge.user {{ background: #1e3a8a; color: #60a5fa; }}
             code {{ background: #0f172a; padding: 2px 6px; border-radius: 4px; color: #38bdf8; }}
             .flow {{ background: #1e293b; padding: 16px; border-radius: 8px; border: 1px solid #334155; margin-bottom: 24px; font-family: monospace; white-space: pre; color: #a5f3fc; overflow-x: auto; }}
+            .header-bar {{ display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }}
+            .btn-clear {{ background: #7f1d1d; color: #fecaca; border: 1px solid #b91c1c; padding: 8px 16px; border-radius: 6px; font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.2s ease; }}
+            .btn-clear:hover {{ background: #dc2626; color: #ffffff; border-color: #ef4444; }}
         </style>
     </head>
     <body>
         <div class="container">
-            <h1>🛡️ CSATTT Kerberos Lab Dashboard</h1>
+            <h1>CSATTT Kerberos Lab Dashboard</h1>
             <p class="sub">Môi trường thử nghiệm xác thực Kerberos & Tấn công Golden Ticket (Auto-refresh 5s)</p>
 
             <div class="cards">
@@ -210,7 +221,10 @@ async def dashboard():
 [6. AP-REP] API Server -> Client                : 200 OK Authenticated Principal
             </div>
 
-            <h2>📋 Real-time Authentication Audit Log</h2>
+            <div class="header-bar">
+                <h2 style="margin: 0;">Real-time Authentication Audit Log</h2>
+                <button onclick="clearLogs()" class="btn-clear">Xóa nhật ký (Clear Logs)</button>
+            </div>
             <table>
                 <thead>
                     <tr>
@@ -224,10 +238,29 @@ async def dashboard():
                     </tr>
                 </thead>
                 <tbody>
-                    {rows_html if rows_html else '<tr><td colspan="7" style="text-align:center; color:#64748b;">Chưa có sự kiện xác thực nào. Hãy chạy demo từ Client hoặc Attacker.</td></tr>'}
+                    {rows_html if rows_html else '<tr><td colspan="7" style="text-align:center; color:#64748b; padding: 24px;">Chưa có sự kiện xác thực nào. Hãy chạy demo từ Client hoặc Attacker.</td></tr>'}
                 </tbody>
             </table>
         </div>
+
+        <script>
+        async function clearLogs() {{
+            if (!confirm("Bạn có chắc chắn muốn xóa toàn bộ nhật ký xác thực để bắt đầu phiên demo mới?")) {{
+                return;
+            }}
+            try {{
+                const res = await fetch("/api/logs/clear", {{ method: "POST" }});
+                if (res.ok) {{
+                    window.location.reload();
+                }} else {{
+                    alert("Không thể xóa nhật ký: " + res.statusText);
+                }}
+            }} catch (e) {{
+                alert("Lỗi kết nối khi xóa nhật ký: " + e);
+            }}
+        }}
+        </script>
     </body>
     </html>
     """
+

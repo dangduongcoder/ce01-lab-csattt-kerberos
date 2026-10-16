@@ -1,0 +1,172 @@
+digraph KerberosAuthenticationFlow {
+    // Cấu hình đồ họa tổng thể - Tối ưu cho hiển thị sắc nét 300 DPI
+    graph [
+        rankdir=LR,
+        nodesep=0.75,
+        ranksep=1.2,
+        fontname="Arial,Helvetica,sans-serif",
+        fontsize=14,
+        compound=true,
+        bgcolor="#ffffff",
+        dpi=300,
+        charset="UTF-8",
+        label="\nSƠ ĐỒ NGUYÊN LÝ XÁC THỰC KERBEROS CHUẨN (RFC 4120)\nMôn học: Cơ sở An toàn Thông tin | Lab: Kerberos & Active Directory\n ",
+        labelloc="t",
+        labeljust="c"
+    ];
+
+    node [
+        fontname="Arial,Helvetica,sans-serif",
+        fontsize=11,
+        shape=box,
+        style="filled,rounded",
+        margin="0.25,0.18"
+    ];
+
+    edge [
+        fontname="Arial,Helvetica,sans-serif",
+        fontsize=10,
+        penwidth=1.8,
+        arrowsize=0.9
+    ];
+
+    // ==========================================
+    // CỤM 1: MÁY TRẠM NGƯỜI DÙNG (CLIENT)
+    // ==========================================
+    subgraph cluster_client {
+        label = "MÁY TRẠM CLIENT (client.lab.local)";
+        style = "filled,rounded";
+        fillcolor = "#f0f9ff";
+        color = "#0284c7";
+        fontcolor = "#0369a1";
+        fontsize = 12;
+
+        Client [
+            label = "Người dùng: Alice (Khởi tạo phiên)\nTài khoản: alice@LAB.LOCAL\nỨng dụng: Python Kerberos Client\nBộ nhớ vé: Credential Cache (/tmp/krb5cc_*)",
+            fillcolor = "#bae6fd",
+            color = "#0284c7",
+            penwidth = 1.6
+        ];
+    }
+
+    // ==========================================
+    // CỤM 2: TRUNG TÂM PHÂN PHỐI KHÓA (KDC)
+    // ==========================================
+    subgraph cluster_kdc {
+        label = "TRUNG TÂM PHÂN PHỐI KHÓA - KDC (dc.lab.local)";
+        style = "filled,rounded";
+        fillcolor = "#fff1f2";
+        color = "#dc2626";
+        fontcolor = "#b91c1c";
+        fontsize = 12;
+
+        AS [
+            label = "Dịch vụ Xác thực - AS (Authentication Service)\nCổng dịch vụ: UDP/TCP 88\nChức năng: Xác thực danh tính ban đầu của người dùng\nCấp phát: Vé cấp vé (Ticket Granting Ticket - TGT)",
+            fillcolor = "#fecdd3",
+            color = "#e11d48",
+            penwidth = 1.5
+        ];
+
+        TGS [
+            label = "Dịch vụ Cấp vé Dịch vụ - TGS (Ticket Granting Service)\nCổng dịch vụ: UDP/TCP 88\nChức năng: Thẩm định TGT và phân quyền truy cập\nCấp phát: Vé dịch vụ (Service Ticket - TGS)",
+            fillcolor = "#fed7aa",
+            color = "#ea580c",
+            penwidth = 1.5
+        ];
+
+        KDC_DB [
+            label = "Cơ sở dữ liệu Active Directory (Samba AD DC)\nLưu trữ thông tin tài khoản và khóa bí mật:\n• Khóa người dùng: K_alice (băm từ mật khẩu)\n• Khóa dịch vụ cấp vé: K_krbtgt (tài khoản krbtgt)\n• Khóa dịch vụ ứng dụng: K_api (Service Principal Name)",
+            shape = cylinder,
+            fillcolor = "#fef08a",
+            color = "#ca8a04",
+            fontsize = 10
+        ];
+    }
+
+    // ==========================================
+    // CỤM 3: MÁY CHỦ DỊCH VỤ ỨNG DỤNG (SERVICE)
+    // ==========================================
+    subgraph cluster_service {
+        label = "MÁY CHỦ DỊCH VỤ (api.lab.local)";
+        style = "filled,rounded";
+        fillcolor = "#f0fdf4";
+        color = "#16a34a";
+        fontcolor = "#15803d";
+        fontsize = 12;
+
+        AP [
+            label = "Dịch vụ API: FastAPI Web Service\nĐịnh danh dịch vụ (SPN): HTTP/api.lab.local\nKho lưu trữ khóa: Keytab (/etc/api.keytab)\nChứa khóa bí mật: K_api (đối xứng với AD DC)",
+            fillcolor = "#bbf7d0",
+            color = "#16a34a",
+            penwidth = 1.6
+        ];
+    }
+
+    // ==========================================
+    // CÁC LUỒNG THÔNG ĐIỆP GIAO THỨC (6 BƯỚC CHUẨN)
+    // ==========================================
+
+    // Giai đoạn 1: Trao đổi với AS (AS Exchange)
+    Client -> AS [
+        label = "1. AS-REQ (Gửi yêu cầu TGT)\n• Principal: alice@LAB.LOCAL\n• Dấu thời gian Pre-Auth: Enc(Timestamp, Khóa K_alice)\n• Mục đích: Chứng minh biết mật khẩu mà không gửi mật khẩu",
+        color = "#2563eb",
+        fontcolor = "#1d4ed8"
+    ];
+
+    AS -> Client [
+        label = "2. AS-REP (Trả về TGT và Khóa phiên)\n• Khóa phiên TGT: Enc(SessionKey_Alice_TGS, Khóa K_alice)\n• Vé TGT: Enc(Alice, SessionKey, PAC, Khóa K_krbtgt)\n• Lưu ý: Chỉ KDC mới giải mã được TGT",
+        color = "#2563eb",
+        fontcolor = "#1d4ed8"
+    ];
+
+    // Giai đoạn 2: Trao đổi với TGS (TGS Exchange)
+    Client -> TGS [
+        label = "3. TGS-REQ (Yêu cầu vé truy cập dịch vụ)\n• Gửi kèm: Vé TGT (mã hóa bằng Khóa K_krbtgt)\n• Khối xác thực Authenticator: Enc(Timestamp, SessionKey_Alice_TGS)\n• Dịch vụ cần truy cập: HTTP/api.lab.local",
+        color = "#ea580c",
+        fontcolor = "#c2410c"
+    ];
+
+    TGS -> Client [
+        label = "4. TGS-REP (Trả về vé dịch vụ)\n• Khóa phiên dịch vụ: Enc(SessionKey_Alice_API, SessionKey_Alice_TGS)\n• Vé dịch vụ (ST): Enc(Alice, SessionKey_Alice_API, PAC, Khóa K_api)\n• Lưu ý: Chỉ máy chủ API mới giải mã được vé ST",
+        color = "#ea580c",
+        fontcolor = "#c2410c"
+    ];
+
+    // Giai đoạn 3: Trao đổi với Dịch vụ Ứng dụng (AP Exchange)
+    Client -> AP [
+        label = "5. AP-REQ (Trình vé xác thực qua tiêu đề HTTP SPNEGO)\n• Tiêu đề HTTP: Authorization: Negotiate <GSSAPI Token>\n• Vé dịch vụ: Enc(..., Khóa K_api)\n• Khối xác thực: Enc(Timestamp, SessionKey_Alice_API)",
+        color = "#16a34a",
+        fontcolor = "#15803d"
+    ];
+
+    AP -> Client [
+        label = "6. AP-REP (Phản hồi xác thực hai chiều & Dữ liệu API)\n• Xác thực máy chủ (Mutual Auth): Enc(Timestamp, SessionKey_Alice_API)\n• Trả về kết quả: Mã trạng thái HTTP 200 OK kèm hồ sơ danh tính Alice",
+        color = "#16a34a",
+        fontcolor = "#15803d"
+    ];
+
+    // Liên kết nội bộ trung tâm phân phối khóa KDC
+    AS -> KDC_DB [style=dotted, color="#9ca3af", arrowhead=none, label="Truy vấn khóa K_alice\nvà khóa K_krbtgt"];
+    TGS -> KDC_DB [style=dotted, color="#9ca3af", arrowhead=none, label="Truy vấn khóa K_krbtgt\nvà khóa K_api"];
+
+    // ==========================================
+    // KHỐI GHI CHÚ BẢO MẬT PHỤC VỤ THUYẾT TRÌNH BẢO VỆ
+    // ==========================================
+    subgraph cluster_legend {
+        label = "GHI CHÚ KỸ THUẬT QUAN TRỌNG CHO BÁO CÁO BẢO VỆ";
+        style = "filled,dashed";
+        fillcolor = "#f8fafc";
+        color = "#64748b";
+        fontcolor = "#334155";
+        fontsize = 11;
+
+        LegendNode [
+            label = "1. Cơ chế không gửi mật khẩu (Zero Password Transmission):\n   Mật khẩu của người dùng không bao giờ truyền qua mạng, chỉ dùng để tạo khóa mã hóa tạm thời.\n\n2. Cấu trúc PAC (Privilege Attribute Certificate):\n   Được KDC gắn vào vé, chứa danh sách định danh nhóm (Group SIDs) chứng minh quyền hạn người dùng.\n\n3. Trọng tâm bảo mật của toàn bộ Realm:\n   Vé TGT được bảo vệ hoàn toàn bởi khóa bí mật của tài khoản krbtgt (K_krbtgt).\n   Nếu khóa K_krbtgt bị lộ, kẻ tấn công có thể tự tạo vé TGT hợp lệ mà không cần qua KDC (Tấn công Golden Ticket).",
+            shape = note,
+            fillcolor = "#ffffff",
+            color = "#94a3b8",
+            fontsize = 10,
+            justify = left
+        ];
+    }
+}

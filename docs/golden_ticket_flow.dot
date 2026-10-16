@@ -1,0 +1,160 @@
+digraph GoldenTicketAttackFlow {
+    // Cấu hình đồ họa tổng thể - Tối ưu cho hiển thị sắc nét 300 DPI
+    graph [
+        rankdir=LR,
+        nodesep=0.8,
+        ranksep=1.2,
+        fontname="Arial,Helvetica,sans-serif",
+        fontsize=14,
+        compound=true,
+        bgcolor="#ffffff",
+        dpi=300,
+        charset="UTF-8",
+        label="\nSƠ ĐỒ CƠ CHẾ TẤN CÔNG GOLDEN TICKET (MITRE ATT&CK T1558.001)\nMôn học: Cơ sở An toàn Thông tin | Lab: Kerberos & Active Directory\n ",
+        labelloc="t",
+        labeljust="c"
+    ];
+
+    node [
+        fontname="Arial,Helvetica,sans-serif",
+        fontsize=11,
+        shape=box,
+        style="filled,rounded",
+        margin="0.25,0.18"
+    ];
+
+    edge [
+        fontname="Arial,Helvetica,sans-serif",
+        fontsize=10,
+        penwidth=1.8,
+        arrowsize=0.9
+    ];
+
+    // ==========================================
+    // CỤM 1: MÁY KẺ TẤN CÔNG (ATTACKER)
+    // ==========================================
+    subgraph cluster_attacker {
+        label = "MÁY KẺ TẤN CÔNG (attacker.lab.local)";
+        style = "filled,rounded";
+        fillcolor = "#fef2f2";
+        color = "#b91c1c";
+        fontcolor = "#991b1b";
+        fontsize = 12;
+
+        Attacker [
+            label = "Kẻ tấn công (Attacker)\nSử dụng bộ công cụ Impacket (ticketer.py)\nDữ liệu mật đã đánh cắp từ trước:\n• Định danh miền (Domain SID): S-1-5-21-...\n• Khóa bí mật tài khoản krbtgt (AES-256)",
+            fillcolor = "#fecaca",
+            color = "#b91c1c",
+            penwidth = 1.6
+        ];
+
+        ForgeEngine [
+            label = "Quá trình Tự rèn vé Giả mạo (Golden Ticket)\n• Mạo danh tài khoản: administrator@LAB.LOCAL\n• Mã định danh User RID: 500 (Quản trị viên mặc định)\n• Nhóm đặc quyền: Domain Admins (RID 512)\n• Thời hạn hiệu lực vé: 10 NĂM (Mặc định AD chỉ 10 giờ)\n• Chữ ký mật mã: Tự ký bằng Khóa bí mật krbtgt",
+            fillcolor = "#fee2e2",
+            color = "#dc2626",
+            style = "dotted,filled"
+        ];
+    }
+
+    // ==========================================
+    // CỤM 2: TRUNG TÂM PHÂN PHỐI KHÓA (KDC)
+    // ==========================================
+    subgraph cluster_kdc {
+        label = "TRUNG TÂM PHÂN PHỐI KHÓA - KDC (dc.lab.local)";
+        style = "filled,rounded";
+        fillcolor = "#f3f4f6";
+        color = "#9ca3af";
+        fontcolor = "#4b5563";
+        fontsize = 12;
+
+        AS_Bypassed [
+            label = "Dịch vụ Xác thực AS\n(BỊ BỎ QUA HOÀN TOÀN)\nKhông có bản ghi yêu cầu AS-REQ\nKhông cần biết mật khẩu của tài khoản Administrator",
+            fillcolor = "#e5e7eb",
+            color = "#9ca3af",
+            style = "dashed,filled",
+            fontcolor = "#6b7280"
+        ];
+
+        TGS_Service [
+            label = "Dịch vụ Cấp vé Dịch vụ (TGS)\nCổng dịch vụ: UDP/TCP 88\nGiải mã vé TGT bằng Khóa bí mật krbtgt nội bộ\n-> Kết luận vé TGT là HỢP LỆ do chữ ký khớp hoàn hảo!\n-> Xuất vé dịch vụ (ST) với toàn quyền Domain Admins",
+            fillcolor = "#fed7aa",
+            color = "#ea580c",
+            penwidth = 1.5
+        ];
+    }
+
+    // ==========================================
+    // CỤM 3: MÁY CHỦ DỊCH VỤ MỤC TIÊU (SERVICE)
+    // ==========================================
+    subgraph cluster_service {
+        label = "MÁY CHỦ DỊCH VỤ MỤC TIÊU (api.lab.local)";
+        style = "filled,rounded";
+        fillcolor = "#f0fdf4";
+        color = "#16a34a";
+        fontcolor = "#15803d";
+        fontsize = 12;
+
+        AP_Target [
+            label = "Dịch vụ API: FastAPI Web Service\nĐịnh danh dịch vụ (SPN): HTTP/api.lab.local\nChỉ thẩm định vé dịch vụ (ST) bằng file keytab cục bộ\nKhông liên hệ trực tiếp với KDC để kiểm tra",
+            fillcolor = "#bbf7d0",
+            color = "#16a34a",
+            penwidth = 1.6
+        ];
+    }
+
+    // ==========================================
+    // LUỒNG TẤN CÔNG TỪNG BƯỚC
+    // ==========================================
+    Attacker -> ForgeEngine [
+        label = "Bước 1: Tự sinh vé TGT ngoại tuyến (Offline Forgery)\n• Không gửi bất kỳ gói tin nào lên mạng\n• Tự tạo cấu trúc PAC với quyền Quản trị cao nhất",
+        color = "#dc2626",
+        fontcolor = "#b91c1c"
+    ];
+
+    ForgeEngine -> TGS_Service [
+        label = "Bước 2: Gửi yêu cầu TGS-REQ kèm vé giả mạo\n• Trình vé Golden Ticket (TGT giả mạo có chữ ký krbtgt chuẩn)\n• Yêu cầu vé dịch vụ truy cập HTTP/api.lab.local",
+        color = "#ea580c",
+        fontcolor = "#c2410c",
+        penwidth = 2.2
+    ];
+
+    TGS_Service -> Attacker [
+        label = "Bước 3: TGS-REP trả về vé dịch vụ hợp lệ\n• KDC tin tưởng vé TGT giả mạo tuyệt đối\n• Trả về vé dịch vụ mang quyền Quản trị tối cao (Domain Admin)",
+        color = "#ea580c",
+        fontcolor = "#c2410c"
+    ];
+
+    Attacker -> AP_Target [
+        label = "Bước 4: AP-REQ khai thác endpoint nhạy cảm\n• Gửi yêu cầu HTTP GET /api/admin/flag\n• Kèm vé dịch vụ ủy quyền quản trị viên",
+        color = "#16a34a",
+        fontcolor = "#15803d",
+        penwidth = 2.2
+    ];
+
+    AP_Target -> Attacker [
+        label = "Bước 5: Chiếm đoạt dữ liệu bảo mật (Compromised)\n• Máy chủ xác thực thành công danh tính Administrator\n• Trả về mã bí mật quản trị (FLAG) - Toàn quyền kiểm soát hệ thống",
+        color = "#16a34a",
+        fontcolor = "#15803d"
+    ];
+
+    // ==========================================
+    // KHỐI GHI CHÚ PHÁT HIỆN VÀ PHÒNG CHỐNG
+    // ==========================================
+    subgraph cluster_detection {
+        label = "CÁC DẤU HIỆU BẤT THƯỜNG DÙNG ĐỂ PHÁT HIỆN & KHẮC PHỤC";
+        style = "filled,dashed";
+        fillcolor = "#fefce8";
+        color = "#eab308";
+        fontcolor = "#854d0e";
+        fontsize = 11;
+
+        Detections [
+            label = "1. Bất thường chuỗi sự kiện (Sequence Anomaly):\n   Xuất hiện yêu cầu TGS-REQ mà trước đó HOÀN TOÀN KHÔNG CÓ yêu cầu AS-REQ tương ứng từ cùng địa chỉ IP.\n\n2. Bất thường thời hạn hiệu lực vé (Lifetime Anomaly):\n   Thời hạn sống của vé giả mạo vượt xa chính sách Kerberos Domain Policy mặc định (10 năm so với chuẩn 10 giờ).\n\n3. Biện pháp khắc phục triệt để (Remediation Protocol):\n   Đổi mật khẩu tài khoản krbtgt HAI LẦN LIÊN TIẾP (Double Reset).\n   Lần 1 để vô hiệu hóa khóa cũ, lần 2 để xóa hoàn toàn lịch sử khóa (krbtgt:history) khỏi Active Directory.",
+            shape = note,
+            fillcolor = "#ffffff",
+            color = "#ca8a04",
+            fontsize = 10,
+            justify = left
+        ];
+    }
+}

@@ -106,7 +106,7 @@ def compare_tickets(normal_path: str = None, golden_path: str = None):
                 break
 
     console.print(Panel.fit(
-        "[bold cyan]🔍 PHẪU THUẬT VÉ KERBEROS & PAC INSPECTOR[/]\n"
+        "[bold cyan][*] PHẪU THUẬT VÉ KERBEROS & PAC INSPECTOR[/]\n"
         "So sánh cấu trúc chi tiết giữa TGT hợp lệ (Alice) và Vé giả mạo Golden Ticket",
         style="bold magenta"
     ))
@@ -160,7 +160,7 @@ def compare_tickets(normal_path: str = None, golden_path: str = None):
     )
 
     console.print(table)
-    console.print("\n[bold yellow]📌 KẾT LUẬN HỌC THUẬT:[/]")
+    console.print("\n[bold yellow][*] KẾT LUẬN HỌC THUẬT:[/]")
     console.print("1. [cyan]Tại sao Golden Ticket thành công?[/] KDC và Service Server dùng kỹ thuật mã hóa đối xứng (Symmetric Encryption). Mọi vé được mã hóa và ký bằng bí mật của [red]krbtgt[/] đều được KDC tin tưởng tuyệt đối mà không cần tra cứu xem ai đã cấp vé!")
     console.print("2. [cyan]Dấu hiệu nhận diện (Anomalies):[/] Thời hạn vé 10 năm vượt xa mức chuẩn 10 giờ, và không tồn tại bản ghi AS-REQ tại KDC khi vé này được sử dụng!")
 

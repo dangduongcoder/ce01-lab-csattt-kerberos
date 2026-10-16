@@ -9,11 +9,11 @@ ALICE_PASS="${ALICE_PASS:-AliceP@ss123!}"
 BOB_PASS="${BOB_PASS:-BobP@ss123!}"
 SERVICE_PASS="${SERVICE_PASS:-SvcApiP@ss123!}"
 
-mkdir -p /shared
+mkdir -p /shared /var/lib/samba/private /etc/samba
 
 if [ ! -f /var/lib/samba/private/sam.ldb ]; then
     echo "[*] Provisioning Samba AD Domain Controller..."
-    rm -f /etc/samba/smb.conf
+    rm -f /etc/samba/smb.conf /var/lib/samba/private/smb.conf
     rm -rf /var/lib/samba/private/* /var/lib/samba/db/*
 
     samba-tool domain provision \
@@ -24,8 +24,9 @@ if [ ! -f /var/lib/samba/private/sam.ldb ]; then
         --domain="${NETBIOS}" \
         --adminpass="${ADMIN_PASS}"
 
-    echo "[*] Installing Kerberos configuration..."
+    echo "[*] Installing Kerberos and Samba configurations..."
     cp -f /var/lib/samba/private/krb5.conf /etc/krb5.conf
+    cp -f /etc/samba/smb.conf /var/lib/samba/private/smb.conf
 
     echo "[*] Starting temporary Samba daemon for initial provisioning..."
     samba -s /etc/samba/smb.conf
@@ -67,7 +68,46 @@ else
     echo "[+] Samba AD already provisioned."
 fi
 
+# Ensure smb.conf is properly restored on container startup
+if [ -f /var/lib/samba/private/smb.conf ]; then
+    cp -f /var/lib/samba/private/smb.conf /etc/samba/smb.conf
+elif ! grep -q "server role = active directory domain controller" /etc/samba/smb.conf 2>/dev/null; then
+    echo "[*] Re-generating Active Directory smb.conf from persistent AD state..."
+    cat <<EOF > /etc/samba/smb.conf
+[global]
+    netbios name = DC
+    realm = ${REALM}
+    server role = active directory domain controller
+    workgroup = ${NETBIOS}
+    idmap_ldb:use rfc2307 = yes
+    dns forwarder = 8.8.8.8
+
+[sysvol]
+    path = /var/lib/samba/sysvol
+    read only = No
+
+[netlogon]
+    path = /var/lib/samba/sysvol/${DOMAIN}/scripts
+    read only = No
+EOF
+    cp -f /etc/samba/smb.conf /var/lib/samba/private/smb.conf
+fi
+
 # Ensure krb5.conf is in place
 if [ -f /var/lib/samba/private/krb5.conf ]; then
     cp -f /var/lib/samba/private/krb5.conf /etc/krb5.conf
+fi
+
+# Ensure shared keytabs and domain info are always present in shared volume
+if [ ! -f /shared/api.keytab ]; then
+    echo "[*] Exporting missing /shared/api.keytab..."
+    samba-tool domain exportkeytab /shared/api.keytab --principal=HTTP/api.lab.local || true
+    chmod 644 /shared/api.keytab 2>/dev/null || true
+fi
+
+if [ ! -f /shared/krbtgt.keytab ] || [ ! -f /shared/domain_info.json ]; then
+    echo "[*] Exporting missing /shared/krbtgt.keytab and domain_info.json..."
+    samba-tool domain exportkeytab /shared/krbtgt.keytab --principal=krbtgt || true
+    chmod 644 /shared/krbtgt.keytab 2>/dev/null || true
+    python3 /scripts/export_domain_info.py || true
 fi
